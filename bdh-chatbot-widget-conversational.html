@@ -1,0 +1,802 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BDH Chatbot Widget - Conversational</title>
+    <style>
+        /* Same styles as before - copying from original widget */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        #bdh-chat-button {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #FF0000 0%, #CC0000 100%);
+            color: white;
+            border: none;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            z-index: 9999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+            font-size: 28px;
+        }
+
+        #bdh-chat-button:hover {
+            transform: scale(1.1);
+            box-shadow: 0 6px 20px rgba(255, 0, 0, 0.3);
+        }
+
+        #bdh-chat-button.active {
+            background: #666;
+        }
+
+        #bdh-chat-container {
+            position: fixed;
+            bottom: 100px;
+            right: 30px;
+            width: 420px;
+            height: 650px;
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+            z-index: 9998;
+            display: none;
+            flex-direction: column;
+            overflow: hidden;
+            animation: slideUp 0.3s ease;
+        }
+
+        #bdh-chat-container.show {
+            display: flex;
+        }
+
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .bdh-chat-header {
+            background: linear-gradient(135deg, #FF0000 0%, #CC0000 100%);
+            color: white;
+            padding: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .bdh-chat-header h3 {
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        .bdh-chat-header p {
+            font-size: 12px;
+            opacity: 0.9;
+            margin-top: 4px;
+        }
+
+        .bdh-close-btn {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 24px;
+            cursor: pointer;
+            padding: 0;
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 4px;
+            transition: background 0.2s;
+        }
+
+        .bdh-close-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        .bdh-chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+
+        .bdh-message {
+            margin-bottom: 16px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .bdh-message.user {
+            align-items: flex-end;
+        }
+
+        .bdh-message.bot {
+            align-items: flex-start;
+        }
+
+        .bdh-message-bubble {
+            max-width: 85%;
+            padding: 14px 18px;
+            border-radius: 12px;
+            word-wrap: break-word;
+            font-size: 14px;
+            line-height: 1.6;
+            white-space: pre-wrap;
+        }
+
+        .bdh-message.user .bdh-message-bubble {
+            background: #FF0000;
+            color: white;
+            border-bottom-right-radius: 4px;
+        }
+
+        .bdh-message.bot .bdh-message-bubble {
+            background: white;
+            color: #333;
+            border-bottom-left-radius: 4px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        }
+
+        .bdh-message-time {
+            font-size: 11px;
+            color: #999;
+            margin-top: 4px;
+            padding: 0 4px;
+        }
+
+        .bdh-message-sources {
+            margin-top: 10px;
+            padding: 12px;
+            background: #f8f8f8;
+            border-radius: 8px;
+            border-left: 3px solid #FF0000;
+        }
+
+        .bdh-message-sources-title {
+            font-size: 12px;
+            font-weight: 600;
+            color: #666;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .bdh-source-item {
+            display: flex;
+            align-items: start;
+            padding: 8px;
+            margin-bottom: 6px;
+            background: white;
+            border-radius: 6px;
+            transition: all 0.2s;
+            cursor: pointer;
+            text-decoration: none;
+            color: inherit;
+        }
+
+        .bdh-source-item:hover {
+            background: #f0f0f0;
+            transform: translateX(4px);
+        }
+
+        .bdh-source-icon {
+            margin-right: 10px;
+            font-size: 16px;
+        }
+
+        .bdh-source-details {
+            flex: 1;
+        }
+
+        .bdh-source-name {
+            font-size: 13px;
+            color: #FF0000;
+            font-weight: 500;
+            margin-bottom: 2px;
+        }
+
+        .bdh-source-meta {
+            font-size: 11px;
+            color: #999;
+        }
+
+        .bdh-typing {
+            display: none;
+            padding: 12px 16px;
+            background: white;
+            border-radius: 12px;
+            border-bottom-left-radius: 4px;
+            max-width: 80%;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        }
+
+        .bdh-typing.show {
+            display: block;
+        }
+
+        .bdh-typing-dots {
+            display: flex;
+            gap: 4px;
+        }
+
+        .bdh-typing-dots span {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #999;
+            animation: typing 1.4s infinite;
+        }
+
+        .bdh-typing-dots span:nth-child(2) {
+            animation-delay: 0.2s;
+        }
+
+        .bdh-typing-dots span:nth-child(3) {
+            animation-delay: 0.4s;
+        }
+
+        @keyframes typing {
+            0%, 60%, 100% {
+                opacity: 0.3;
+            }
+            30% {
+                opacity: 1;
+            }
+        }
+
+        .bdh-chat-input {
+            padding: 16px;
+            background: white;
+            border-top: 1px solid #e0e0e0;
+            display: flex;
+            gap: 8px;
+        }
+
+        .bdh-chat-input input {
+            flex: 1;
+            padding: 12px 16px;
+            border: 1px solid #ddd;
+            border-radius: 24px;
+            font-size: 14px;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        .bdh-chat-input input:focus {
+            border-color: #FF0000;
+        }
+
+        .bdh-send-btn {
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            background: #FF0000;
+            color: white;
+            border: none;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            transition: all 0.2s;
+        }
+
+        .bdh-send-btn:hover:not(:disabled) {
+            background: #CC0000;
+            transform: scale(1.05);
+        }
+
+        .bdh-send-btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
+        .bdh-welcome {
+            text-align: center;
+            padding: 40px 20px;
+            color: #666;
+        }
+
+        .bdh-welcome-icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+        }
+
+        .bdh-welcome h4 {
+            font-size: 18px;
+            margin-bottom: 8px;
+            color: #333;
+        }
+
+        .bdh-welcome p {
+            font-size: 14px;
+            line-height: 1.6;
+        }
+
+        .bdh-chat-messages::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .bdh-chat-messages::-webkit-scrollbar-track {
+            background: #f1f1f1;
+        }
+
+        .bdh-chat-messages::-webkit-scrollbar-thumb {
+            background: #ccc;
+            border-radius: 3px;
+        }
+
+        .bdh-chat-messages::-webkit-scrollbar-thumb:hover {
+            background: #999;
+        }
+
+        @media (max-width: 480px) {
+            #bdh-chat-container {
+                width: 100%;
+                height: 100%;
+                bottom: 0;
+                right: 0;
+                border-radius: 0;
+            }
+
+            #bdh-chat-button {
+                bottom: 20px;
+                right: 20px;
+            }
+        }
+
+        .bdh-error {
+            background: #ffebee;
+            color: #c62828;
+            padding: 12px;
+            border-radius: 8px;
+            margin: 8px 0;
+            font-size: 13px;
+            border-left: 4px solid #c62828;
+        }
+    </style>
+</head>
+<body>
+    <button id="bdh-chat-button" aria-label="Open BDH Chatbot">💬</button>
+
+    <div id="bdh-chat-container">
+        <div class="bdh-chat-header">
+            <div>
+                <h3>BDH Assistant</h3>
+                <p>AI-Powered Document Support</p>
+            </div>
+            <button class="bdh-close-btn" aria-label="Close chat">×</button>
+        </div>
+
+        <div class="bdh-chat-messages" id="bdh-chat-messages">
+            <div class="bdh-welcome">
+                <div class="bdh-welcome-icon">🤖</div>
+                <h4>Welcome to BDH Assistant!</h4>
+                <p>I'm your AI assistant for ABB's Business Document Hub. Ask me about policies, procedures, guidelines, or any business documents.</p>
+            </div>
+        </div>
+
+        <div class="bdh-typing" id="bdh-typing">
+            <div class="bdh-typing-dots">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+        </div>
+
+        <div class="bdh-chat-input">
+            <input 
+                type="text" 
+                id="bdh-chat-input" 
+                placeholder="Ask me anything about ABB documents..."
+                autocomplete="off"
+            />
+            <button class="bdh-send-btn" id="bdh-send-btn" aria-label="Send message">▶</button>
+        </div>
+    </div>
+
+    <script>
+        // ===========================
+        // CONFIGURATION
+        // ===========================
+        const CONFIG = {
+            API_URL: 'http://your-server:9000/chat',  // ⚠️ CHANGE TO YOUR API URL
+            TOP_K: 3,                  // Number of source documents
+            TEMPERATURE: 0.3,          // LLM temperature (0.0 = focused, 1.0 = creative)
+            SAVE_HISTORY: true,        // Save conversation in browser
+            MAX_HISTORY_LENGTH: 10     // Maximum messages to keep in history
+        };
+
+        // ===========================
+        // UTILITY FUNCTIONS
+        // ===========================
+        
+        function getUserEmail() {
+            // Method 1: Classic SharePoint
+            if (typeof _spPageContextInfo !== 'undefined' && _spPageContextInfo.userEmail) {
+                return _spPageContextInfo.userEmail;
+            }
+            
+            // Method 2: Modern SharePoint
+            if (typeof window.SPClientSDK !== 'undefined') {
+                try {
+                    const context = window.SPClientSDK.getContext();
+                    if (context?.pageContext?.user?.email) {
+                        return context.pageContext.user.email;
+                    }
+                } catch (e) {
+                    console.warn('Modern context error:', e);
+                }
+            }
+            
+            // Method 3: Check sessionStorage
+            const savedEmail = sessionStorage.getItem('bdh_user_email');
+            if (savedEmail) return savedEmail;
+            
+            // Method 4: Prompt user
+            const email = prompt('Please enter your ABB email address:');
+            if (email && email.includes('@')) {
+                sessionStorage.setItem('bdh_user_email', email);
+                return email;
+            }
+            
+            return 'anonymous@abb.com';
+        }
+
+        function getFileIcon(fileType) {
+            const icons = {
+                'pdf': '📄',
+                'docx': '📝',
+                'doc': '📝',
+                'pptx': '📊',
+                'ppt': '📊',
+                'xlsx': '📈',
+                'xls': '📈',
+                'txt': '📃',
+                'html': '🌐'
+            };
+            return icons[fileType?.toLowerCase()] || '📎';
+        }
+
+        function formatDate(dateString) {
+            if (!dateString || dateString === 'N/A') return '';
+            try {
+                const date = new Date(dateString);
+                return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+            } catch (e) {
+                return dateString;
+            }
+        }
+
+        // ===========================
+        // DOM ELEMENTS
+        // ===========================
+        
+        const chatButton = document.getElementById('bdh-chat-button');
+        const chatContainer = document.getElementById('bdh-chat-container');
+        const closeBtn = document.querySelector('.bdh-close-btn');
+        const messagesContainer = document.getElementById('bdh-chat-messages');
+        const chatInput = document.getElementById('bdh-chat-input');
+        const sendBtn = document.getElementById('bdh-send-btn');
+        const typingIndicator = document.getElementById('bdh-typing');
+
+        // ===========================
+        // STATE
+        // ===========================
+        
+        let isOpen = false;
+        let isProcessing = false;
+        let conversationHistory = [];
+
+        // ===========================
+        // CORE FUNCTIONS
+        // ===========================
+        
+        function toggleChat() {
+            isOpen = !isOpen;
+            chatContainer.classList.toggle('show', isOpen);
+            chatButton.classList.toggle('active', isOpen);
+            
+            if (isOpen) {
+                chatInput.focus();
+                loadHistory();
+            }
+        }
+
+        function addMessage(text, isUser = false, sources = null) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `bdh-message ${isUser ? 'user' : 'bot'}`;
+
+            const bubble = document.createElement('div');
+            bubble.className = 'bdh-message-bubble';
+            bubble.textContent = text;
+
+            const time = document.createElement('div');
+            time.className = 'bdh-message-time';
+            time.textContent = new Date().toLocaleTimeString('en-US', { 
+                hour: '2-digit', 
+                minute: '2-digit' 
+            });
+
+            messageDiv.appendChild(bubble);
+            messageDiv.appendChild(time);
+
+            // Add sources with enhanced styling
+            if (!isUser && sources && sources.length > 0) {
+                const sourcesDiv = document.createElement('div');
+                sourcesDiv.className = 'bdh-message-sources';
+                
+                const sourcesTitle = document.createElement('div');
+                sourcesTitle.className = 'bdh-message-sources-title';
+                sourcesTitle.innerHTML = '📚 Source Documents';
+                sourcesDiv.appendChild(sourcesTitle);
+                
+                sources.forEach((source, index) => {
+                    const sourceItem = document.createElement('a');
+                    sourceItem.className = 'bdh-source-item';
+                    sourceItem.href = source.file_url;
+                    sourceItem.target = '_blank';
+                    sourceItem.rel = 'noopener noreferrer';
+                    
+                    const icon = document.createElement('span');
+                    icon.className = 'bdh-source-icon';
+                    icon.textContent = getFileIcon(source.file_type);
+                    
+                    const details = document.createElement('div');
+                    details.className = 'bdh-source-details';
+                    
+                    const name = document.createElement('div');
+                    name.className = 'bdh-source-name';
+                    name.textContent = source.file_name;
+                    
+                    const meta = document.createElement('div');
+                    meta.className = 'bdh-source-meta';
+                    const score = source.relevance_score ? ` • Match: ${(source.relevance_score * 100).toFixed(0)}%` : '';
+                    const date = source.modified_date ? ` • Updated: ${formatDate(source.modified_date)}` : '';
+                    meta.textContent = `${source.file_type?.toUpperCase()}${score}${date}`;
+                    
+                    details.appendChild(name);
+                    details.appendChild(meta);
+                    
+                    sourceItem.appendChild(icon);
+                    sourceItem.appendChild(details);
+                    sourcesDiv.appendChild(sourceItem);
+                });
+                
+                messageDiv.appendChild(sourcesDiv);
+            }
+
+            const welcome = messagesContainer.querySelector('.bdh-welcome');
+            if (welcome) welcome.remove();
+
+            messagesContainer.appendChild(messageDiv);
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+
+            // Store in history
+            conversationHistory.push({
+                role: isUser ? 'user' : 'assistant',
+                content: text,
+                timestamp: new Date().toISOString(),
+                sources: sources
+            });
+
+            // Trim history if too long
+            if (conversationHistory.length > CONFIG.MAX_HISTORY_LENGTH * 2) {
+                conversationHistory = conversationHistory.slice(-CONFIG.MAX_HISTORY_LENGTH * 2);
+            }
+
+            saveHistory();
+        }
+
+        function setTyping(show) {
+            typingIndicator.classList.toggle('show', show);
+            if (show) {
+                messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            }
+        }
+
+        function showError(message) {
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'bdh-error';
+            errorDiv.textContent = `⚠️ ${message}`;
+            messagesContainer.appendChild(errorDiv);
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+
+        // ===========================
+        // API INTEGRATION
+        // ===========================
+        
+        async function callChatAPI(query) {
+            const userEmail = getUserEmail();
+            
+            // Prepare conversation history for context
+            const historyForAPI = conversationHistory
+                .slice(-6)  // Last 3 exchanges (6 messages)
+                .map(msg => ({
+                    role: msg.role,
+                    content: msg.content
+                }));
+            
+            const requestBody = {
+                query: query,
+                user_email: userEmail,
+                conversation_history: historyForAPI,
+                top_k: CONFIG.TOP_K,
+                temperature: CONFIG.TEMPERATURE
+            };
+
+            console.log('🚀 Sending chat request:', requestBody);
+
+            try {
+                const response = await fetch(CONFIG.API_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-User-Email': userEmail
+                    },
+                    body: JSON.stringify(requestBody)
+                });
+
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(`API error ${response.status}: ${errorText}`);
+                }
+
+                const data = await response.json();
+                console.log('✅ Received response:', data);
+                return data;
+
+            } catch (error) {
+                console.error('❌ API call failed:', error);
+                throw error;
+            }
+        }
+
+        async function sendMessage() {
+            const message = chatInput.value.trim();
+            
+            if (!message || isProcessing) return;
+
+            addMessage(message, true);
+            chatInput.value = '';
+            
+            isProcessing = true;
+            chatInput.disabled = true;
+            sendBtn.disabled = true;
+            setTyping(true);
+
+            try {
+                const response = await callChatAPI(message);
+                
+                setTyping(false);
+                
+                if (response.answer) {
+                    addMessage(response.answer, false, response.sources);
+                } else {
+                    showError('Received empty response from server');
+                }
+
+            } catch (error) {
+                setTyping(false);
+                showError('Unable to get response. Please check your connection and try again.');
+                console.error('Send message error:', error);
+            } finally {
+                isProcessing = false;
+                chatInput.disabled = false;
+                sendBtn.disabled = false;
+                chatInput.focus();
+            }
+        }
+
+        // ===========================
+        // HISTORY MANAGEMENT
+        // ===========================
+        
+        function saveHistory() {
+            if (!CONFIG.SAVE_HISTORY) return;
+            
+            try {
+                sessionStorage.setItem('bdh_chat_history', JSON.stringify(conversationHistory));
+            } catch (e) {
+                console.warn('Failed to save history:', e);
+            }
+        }
+
+        function loadHistory() {
+            if (!CONFIG.SAVE_HISTORY) return;
+            
+            try {
+                const saved = sessionStorage.getItem('bdh_chat_history');
+                if (saved) {
+                    conversationHistory = JSON.parse(saved);
+                    
+                    // Restore messages to UI (optional - can be slow)
+                    // Uncomment if you want to show previous messages on reload
+                    /*
+                    conversationHistory.forEach(msg => {
+                        if (msg.role === 'user') {
+                            addMessage(msg.content, true);
+                        } else {
+                            addMessage(msg.content, false, msg.sources);
+                        }
+                    });
+                    */
+                }
+            } catch (e) {
+                console.warn('Failed to load history:', e);
+            }
+        }
+
+        function clearHistory() {
+            conversationHistory = [];
+            sessionStorage.removeItem('bdh_chat_history');
+            messagesContainer.innerHTML = `
+                <div class="bdh-welcome">
+                    <div class="bdh-welcome-icon">🤖</div>
+                    <h4>Welcome to BDH Assistant!</h4>
+                    <p>I'm your AI assistant for ABB's Business Document Hub. Ask me about policies, procedures, guidelines, or any business documents.</p>
+                </div>
+            `;
+        }
+
+        // ===========================
+        // EVENT LISTENERS
+        // ===========================
+        
+        chatButton.addEventListener('click', toggleChat);
+        closeBtn.addEventListener('click', toggleChat);
+        sendBtn.addEventListener('click', sendMessage);
+        
+        chatInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage();
+            }
+        });
+
+        // Clear history on long press (5 seconds)
+        let longPressTimer;
+        chatButton.addEventListener('mousedown', () => {
+            longPressTimer = setTimeout(() => {
+                if (confirm('Clear chat history?')) {
+                    clearHistory();
+                }
+            }, 5000);
+        });
+        
+        chatButton.addEventListener('mouseup', () => {
+            clearTimeout(longPressTimer);
+        });
+
+        // ===========================
+        // INITIALIZATION
+        // ===========================
+        
+        console.log('✅ BDH Chatbot Widget Loaded');
+        console.log('📍 API URL:', CONFIG.API_URL);
+        console.log('📧 User Email:', getUserEmail());
+        console.log('💾 History:', CONFIG.SAVE_HISTORY ? 'Enabled' : 'Disabled');
+    </script>
+</body>
+</html>
