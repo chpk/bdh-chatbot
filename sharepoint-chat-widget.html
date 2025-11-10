@@ -1,0 +1,613 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ABB Business Document Hub Assistant</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        /* Floating Chat Button */
+        #chat-button {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #FF0000 0%, #CC0000 100%);
+            border: none;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(255, 0, 0, 0.3);
+            z-index: 10000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+        }
+
+        #chat-button:hover {
+            transform: scale(1.1);
+            box-shadow: 0 6px 16px rgba(255, 0, 0, 0.4);
+        }
+
+        #chat-button svg {
+            width: 28px;
+            height: 28px;
+            fill: white;
+        }
+
+        /* Modal Overlay */
+        #chat-modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 10001;
+            animation: fadeIn 0.3s ease;
+        }
+
+        #chat-modal-overlay.active {
+            display: block;
+        }
+
+        /* Chat Modal Container */
+        #chat-modal {
+            position: fixed;
+            bottom: 100px;
+            right: 30px;
+            width: 400px;
+            height: 600px;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+            display: none;
+            flex-direction: column;
+            z-index: 10002;
+            animation: slideUp 0.3s ease;
+        }
+
+        #chat-modal.active {
+            display: flex;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        @keyframes slideUp {
+            from {
+                transform: translateY(20px);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        /* Chat Header */
+        #chat-header {
+            background: linear-gradient(135deg, #FF0000 0%, #CC0000 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 12px 12px 0 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        #chat-header h3 {
+            font-size: 16px;
+            font-weight: 600;
+        }
+
+        #chat-header .user-info {
+            font-size: 12px;
+            opacity: 0.9;
+            margin-top: 4px;
+        }
+
+        #close-chat {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 24px;
+            cursor: pointer;
+            padding: 0;
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 4px;
+            transition: background 0.2s;
+        }
+
+        #close-chat:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        /* Chat Messages Area */
+        #chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            background: #f8f9fa;
+        }
+
+        .message {
+            margin-bottom: 16px;
+            animation: messageSlide 0.3s ease;
+        }
+
+        @keyframes messageSlide {
+            from {
+                transform: translateY(10px);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        .message.user {
+            text-align: right;
+        }
+
+        .message-content {
+            display: inline-block;
+            max-width: 80%;
+            padding: 12px 16px;
+            border-radius: 12px;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+
+        .message.user .message-content {
+            background: #FF0000;
+            color: white;
+            border-bottom-right-radius: 4px;
+        }
+
+        .message.assistant .message-content {
+            background: white;
+            color: #333;
+            border-bottom-left-radius: 4px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .message-time {
+            font-size: 11px;
+            color: #888;
+            margin-top: 4px;
+        }
+
+        /* Typing Indicator */
+        .typing-indicator {
+            display: none;
+            padding: 12px 16px;
+            background: white;
+            border-radius: 12px;
+            width: fit-content;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .typing-indicator.active {
+            display: block;
+        }
+
+        .typing-indicator span {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #888;
+            margin: 0 2px;
+            animation: typing 1.4s infinite;
+        }
+
+        .typing-indicator span:nth-child(2) {
+            animation-delay: 0.2s;
+        }
+
+        .typing-indicator span:nth-child(3) {
+            animation-delay: 0.4s;
+        }
+
+        @keyframes typing {
+            0%, 60%, 100% {
+                transform: translateY(0);
+                opacity: 0.7;
+            }
+            30% {
+                transform: translateY(-10px);
+                opacity: 1;
+            }
+        }
+
+        /* Chat Input Area */
+        #chat-input-container {
+            padding: 16px;
+            background: white;
+            border-top: 1px solid #e0e0e0;
+            border-radius: 0 0 12px 12px;
+        }
+
+        #chat-input-form {
+            display: flex;
+            gap: 8px;
+        }
+
+        #chat-input {
+            flex: 1;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 14px;
+            font-family: inherit;
+            resize: none;
+            max-height: 100px;
+        }
+
+        #chat-input:focus {
+            outline: none;
+            border-color: #FF0000;
+        }
+
+        #send-button {
+            background: #FF0000;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 0 16px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: background 0.2s;
+        }
+
+        #send-button:hover:not(:disabled) {
+            background: #CC0000;
+        }
+
+        #send-button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
+        /* Welcome Message */
+        .welcome-message {
+            text-align: center;
+            padding: 40px 20px;
+            color: #666;
+        }
+
+        .welcome-message h4 {
+            color: #333;
+            margin-bottom: 8px;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            #chat-modal {
+                width: 100%;
+                height: 100%;
+                bottom: 0;
+                right: 0;
+                border-radius: 0;
+            }
+
+            #chat-button {
+                bottom: 20px;
+                right: 20px;
+            }
+        }
+
+        /* Scrollbar Styling */
+        #chat-messages::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        #chat-messages::-webkit-scrollbar-track {
+            background: #f1f1f1;
+        }
+
+        #chat-messages::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 3px;
+        }
+
+        #chat-messages::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+    </style>
+</head>
+<body>
+    <!-- Floating Chat Button -->
+    <button id="chat-button" aria-label="Open chat">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+            <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12z"/>
+        </svg>
+    </button>
+
+    <!-- Modal Overlay -->
+    <div id="chat-modal-overlay"></div>
+
+    <!-- Chat Modal -->
+    <div id="chat-modal">
+        <!-- Chat Header -->
+        <div id="chat-header">
+            <div>
+                <h3>Business Document Hub Assistant</h3>
+                <div class="user-info" id="user-email-display">Loading user...</div>
+            </div>
+            <button id="close-chat" aria-label="Close chat">&times;</button>
+        </div>
+
+        <!-- Chat Messages -->
+        <div id="chat-messages">
+            <div class="welcome-message">
+                <h4>👋 Welcome to the Business Document Hub!</h4>
+                <p>Ask me anything about your documents, policies, or procedures.</p>
+            </div>
+        </div>
+
+        <!-- Chat Input -->
+        <div id="chat-input-container">
+            <form id="chat-input-form">
+                <textarea 
+                    id="chat-input" 
+                    placeholder="Type your question here..." 
+                    rows="1"
+                    aria-label="Chat input"
+                ></textarea>
+                <button type="submit" id="send-button">Send</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // Global variables
+        let userEmail = null;
+        let conversationHistory = [];
+
+        // DOM Elements
+        const chatButton = document.getElementById('chat-button');
+        const chatModal = document.getElementById('chat-modal');
+        const chatModalOverlay = document.getElementById('chat-modal-overlay');
+        const closeChat = document.getElementById('close-chat');
+        const chatMessages = document.getElementById('chat-messages');
+        const chatInputForm = document.getElementById('chat-input-form');
+        const chatInput = document.getElementById('chat-input');
+        const sendButton = document.getElementById('send-button');
+        const userEmailDisplay = document.getElementById('user-email-display');
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            getUserEmail();
+            setupEventListeners();
+        });
+
+        // Get user email from SharePoint
+        function getUserEmail() {
+            try {
+                // Check if we're in SharePoint context
+                if (typeof window.parent !== 'undefined' && window.parent !== window) {
+                    // Try to get from parent window (SharePoint)
+                    if (window.parent._spPageContextInfo && window.parent._spPageContextInfo.userEmail) {
+                        userEmail = window.parent._spPageContextInfo.userEmail;
+                        updateUserDisplay(userEmail);
+                        return;
+                    }
+                }
+
+                // If embedded in iframe, request from parent via postMessage
+                window.addEventListener('message', function(event) {
+                    // Verify origin for security (adjust to your SharePoint domain)
+                    if (event.origin.includes('sharepoint.com')) {
+                        if (event.data.type === 'USER_EMAIL') {
+                            userEmail = event.data.email;
+                            updateUserDisplay(userEmail);
+                        }
+                    }
+                });
+
+                // Request email from parent
+                if (window.parent !== window) {
+                    window.parent.postMessage({ type: 'REQUEST_USER_EMAIL' }, '*');
+                }
+
+                // Fallback: Try to get from current window if not in iframe
+                if (!userEmail && typeof _spPageContextInfo !== 'undefined' && _spPageContextInfo.userEmail) {
+                    userEmail = _spPageContextInfo.userEmail;
+                    updateUserDisplay(userEmail);
+                }
+
+            } catch (error) {
+                console.error('Error getting user email:', error);
+                updateUserDisplay('User');
+            }
+        }
+
+        function updateUserDisplay(email) {
+            if (email && email.includes('@')) {
+                userEmailDisplay.textContent = email;
+            } else {
+                userEmailDisplay.textContent = 'User';
+            }
+        }
+
+        // Setup event listeners
+        function setupEventListeners() {
+            chatButton.addEventListener('click', openChat);
+            closeChat.addEventListener('click', closeModal);
+            chatModalOverlay.addEventListener('click', closeModal);
+            chatInputForm.addEventListener('submit', handleSubmit);
+            
+            // Auto-resize textarea
+            chatInput.addEventListener('input', function() {
+                this.style.height = 'auto';
+                this.style.height = Math.min(this.scrollHeight, 100) + 'px';
+            });
+
+            // Handle Enter key (Shift+Enter for new line)
+            chatInput.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    chatInputForm.dispatchEvent(new Event('submit'));
+                }
+            });
+        }
+
+        function openChat() {
+            chatModal.classList.add('active');
+            chatModalOverlay.classList.add('active');
+            chatInput.focus();
+        }
+
+        function closeModal() {
+            chatModal.classList.remove('active');
+            chatModalOverlay.classList.remove('active');
+        }
+
+        function handleSubmit(e) {
+            e.preventDefault();
+            
+            const question = chatInput.value.trim();
+            if (!question) return;
+
+            // Disable input while processing
+            chatInput.disabled = true;
+            sendButton.disabled = true;
+
+            // Add user message to chat
+            addMessage(question, 'user');
+            
+            // Clear input
+            chatInput.value = '';
+            chatInput.style.height = 'auto';
+
+            // Show typing indicator
+            showTypingIndicator();
+
+            // Simulate API call (replace with actual API call later)
+            setTimeout(() => {
+                hideTypingIndicator();
+                
+                // FOR INITIAL VERSION: Show static response with user email
+                const response = `Thank you for your question! I've received your query from ${userEmail || 'your account'}.\n\n` +
+                                `Your question: "${question}"\n\n` +
+                                `This is a test response. In the production version, this will be replaced with AI-generated answers from the Business Document Hub.`;
+                
+                addMessage(response, 'assistant');
+                
+                // Re-enable input
+                chatInput.disabled = false;
+                sendButton.disabled = false;
+                chatInput.focus();
+            }, 1500);
+
+            // TODO: Replace above with actual API call
+            // callRetrieverAPI(question, userEmail);
+        }
+
+        function addMessage(content, sender) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${sender}`;
+            
+            const contentDiv = document.createElement('div');
+            contentDiv.className = 'message-content';
+            contentDiv.textContent = content;
+            
+            const timeDiv = document.createElement('div');
+            timeDiv.className = 'message-time';
+            timeDiv.textContent = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            
+            messageDiv.appendChild(contentDiv);
+            messageDiv.appendChild(timeDiv);
+            
+            // Remove welcome message if exists
+            const welcomeMsg = chatMessages.querySelector('.welcome-message');
+            if (welcomeMsg) {
+                welcomeMsg.remove();
+            }
+            
+            chatMessages.appendChild(messageDiv);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+            
+            // Store in history
+            conversationHistory.push({ role: sender, content: content, timestamp: new Date() });
+        }
+
+        function showTypingIndicator() {
+            const typingDiv = document.createElement('div');
+            typingDiv.className = 'typing-indicator active';
+            typingDiv.id = 'typing-indicator';
+            typingDiv.innerHTML = '<span></span><span></span><span></span>';
+            chatMessages.appendChild(typingDiv);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        function hideTypingIndicator() {
+            const typingIndicator = document.getElementById('typing-indicator');
+            if (typingIndicator) {
+                typingIndicator.remove();
+            }
+        }
+
+        // FUTURE: Actual API call function (commented out for initial version)
+        /*
+        async function callRetrieverAPI(question, email) {
+            try {
+                const response = await fetch('YOUR_API_ENDPOINT_HERE', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        question: question,
+                        email: email
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error('API request failed');
+                }
+
+                const data = await response.json();
+                
+                hideTypingIndicator();
+                addMessage(data.answer || 'I apologize, but I could not generate a response.', 'assistant');
+                
+                // Re-enable input
+                chatInput.disabled = false;
+                sendButton.disabled = false;
+                chatInput.focus();
+                
+            } catch (error) {
+                console.error('Error calling API:', error);
+                hideTypingIndicator();
+                addMessage('I apologize, but I encountered an error. Please try again later.', 'assistant');
+                
+                // Re-enable input
+                chatInput.disabled = false;
+                sendButton.disabled = false;
+            }
+        }
+        */
+    </script>
+</body>
+</html>
